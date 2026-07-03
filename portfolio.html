@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEGLACY — Video Editor & Developer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+
+  /* ============================================
+     TOKENS
+     ============================================ */
+  :root{
+    --bg: #0b0b0d;
+    --bg-alt: #131315;
+    --panel: #17171a;
+    --line: #26262a;
+    --text: #f5f3ee;
+    --text-dim: #8b8b90;
+    --accent: #ff5a2e;      /* tally-light red/orange — the "record" cue */
+    --accent-2: #3ddc97;    /* terminal green — code cue */
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    --maxw: 1180px;
+  }
+
+  *{ margin:0; padding:0; box-sizing:border-box; }
+
+  html{ scroll-behavior:smooth; }
+
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    html{ scroll-behavior:auto; }
+    *{ animation-duration:0.001ms !important; transition-duration:0.001ms !important; }
+  }
+
+  a{ color:inherit; text-decoration:none; }
+  ul{ list-style:none; }
+  img, video{ max-width:100%; display:block; }
+
+  .wrap{
+    max-width:var(--maxw);
+    margin:0 auto;
+    padding:0 32px;
+  }
+
+  ::selection{ background:var(--accent); color:#0b0b0d; }
+
+  :focus-visible{
+    outline:2px solid var(--accent);
+    outline-offset:3px;
+  }
+
+  /* ============================================
+     SIGNATURE ELEMENT — the scroll timeline
+     A thin playhead line at the very top of the
+     viewport that fills as you scroll, with a
+     live timecode. It's the thread that ties the
+     "editing" and "coding" halves of the page
+     together: the whole site is one timeline.
+     ============================================ */
+  .scrub-track{
+    position:fixed;
+    top:0; left:0; right:0;
+    height:3px;
+    background:var(--line);
+    z-index:200;
+  }
+  .scrub-fill{
+    height:100%;
+    width:0%;
+    background:var(--accent);
+    transition:width 0.05s linear;
+  }
+  .timecode{
+    position:fixed;
+    top:10px; right:20px;
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--text-dim);
+    letter-spacing:0.05em;
+    z-index:200;
+    background:var(--bg);
+    padding:4px 8px;
+    border:1px solid var(--line);
+    border-radius:3px;
+  }
+  .timecode span{ color:var(--accent); }
+
+  /* ============================================
+     NAV
+     ============================================ */
+  header{
+    position:fixed;
+    top:3px; left:0; right:0;
+    z-index:150;
+    background:rgba(11,11,13,0.85);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);
+  }
+  nav.wrap{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    height:60px;
+  }
+  .logo{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:16px;
+    letter-spacing:-0.01em;
+  }
+  .logo .dot{ color:var(--accent); }
+  .navlinks{ display:flex; gap:28px; }
+  .navlinks a{
+    font-family:var(--font-mono);
+    font-size:12px;
+    color:var(--text-dim);
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    transition:color 0.2s;
+  }
+  .navlinks a:hover{ color:var(--text); }
+
+  /* ============================================
+     SECTION SCAFFOLDING
+     ============================================ */
+  section{
+    padding:120px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:12px;
+    color:var(--accent);
+    text-transform:uppercase;
+    letter-spacing:0.12em;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:18px;
+  }
+  .eyebrow::before{
+    content:'';
+    width:7px; height:7px;
+    border-radius:50%;
+    background:currentColor;
+  }
+  h2.section-title{
+    font-family:var(--font-display);
+    font-size:clamp(32px, 4vw, 48px);
+    font-weight:600;
+    letter-spacing:-0.02em;
+    margin-bottom:16px;
+  }
+  .section-sub{
+    color:var(--text-dim);
+    font-size:16px;
+    max-width:560px;
+    margin-bottom:64px;
+  }
+
+  /* ============================================
+     HERO
+     ============================================ */
+  .hero{
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding-top:100px;
+    border-bottom:1px solid var(--line);
+    position:relative;
+  }
+  .hero-eyebrow{
+    font-family:var(--font-mono);
+    font-size:13px;
+    color:var(--text-dim);
+    margin-bottom:24px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .rec-dot{
+    width:8px; height:8px;
+    border-radius:50%;
+    background:var(--accent);
+    animation:pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{ opacity:1; }
+    50%{ opacity:0.35; }
+  }
+  h1{
+    font-family:var(--font-display);
+    font-size:clamp(46px, 8vw, 96px);
+    line-height:0.98;
+    font-weight:700;
+    letter-spacing:-0.03em;
+    max-width:900px;
+  }
+  h1 .accent-word{ color:var(--accent); }
+  .hero-role{
+    margin-top:28px;
+    font-size:19px;
+    color:var(--text-dim);
+    max-width:520px;
+  }
+  .hero-cta{
+    display:flex;
+    gap:16px;
+    margin-top:44px;
+  }
+  .btn{
+    font-family:var(--font-mono);
+    font-size:13px;
+    padding:13px 24px;
+    border-radius:4px;
+    letter-spacing:0.03em;
+    transition:all 0.2s;
+    border:1px solid var(--line);
+  }
+  .btn-primary{
+    background:var(--accent);
+    color:#0b0b0d;
+    font-weight:600;
+    border-color:var(--accent);
+  }
+  .btn-primary:hover{ background:#ff7248; }
+  .btn-ghost{ color:var(--text); }
+  .btn-ghost:hover{ border-color:var(--text-dim); }
+
+  /* mini scrub bar illustration under hero */
+  .hero-strip{
+    margin-top:80px;
+    display:flex;
+    align-items:center;
+    gap:2px;
+    height:36px;
+  }
+  .hero-strip .tick{
+    width:2px;
+    background:var(--line);
+    height:14px;
+  }
+  .hero-strip .tick.major{ height:24px; background:var(--text-dim); }
+  .hero-strip .tick.mid{ height:18px; }
+
+  /* ============================================
+     VIDEO SECTION
+     ============================================ */
+  .video-featured{
+    margin-bottom:56px;
+  }
+  .proof-video{
+    width:100%;
+    aspect-ratio:16/9;
+    background:var(--panel);
+    border:1px dashed var(--line);
+    border-radius:8px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    gap:10px;
+    color:var(--text-dim);
+    font-family:var(--font-mono);
+    font-size:12px;
+    text-align:center;
+    overflow:hidden;
+    position:relative;
+  }
+  .proof-video svg{ opacity:0.5; }
+  .proof-video video{ width:100%; height:100%; object-fit:cover; }
+
+  .video-featured .cap{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-top:18px;
+  }
+  .video-featured .cap h3{
+    font-family:var(--font-display);
+    font-size:22px;
+    font-weight:600;
+  }
+  .video-featured .cap span{
+    font-family:var(--font-mono);
+    font-size:12px;
+    color:var(--text-dim);
+  }
+
+  .video-scroll-wrap{
+    position:relative;
+  }
+  .video-grid{
+    display:flex;
+    gap:20px;
+    overflow-x:auto;
+    scroll-snap-type:x proximity;
+    padding-bottom:20px;
+    /* momentum scrolling on iOS */
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;
+    scrollbar-color:var(--line) transparent;
+  }
+  .video-grid::-webkit-scrollbar{ height:6px; }
+  .video-grid::-webkit-scrollbar-track{ background:transparent; }
+  .video-grid::-webkit-scrollbar-thumb{ background:var(--line); border-radius:3px; }
+  .video-grid::-webkit-scrollbar-thumb:hover{ background:var(--text-dim); }
+
+  .video-card{
+    flex:0 0 auto;
+    width:220px;
+    scroll-snap-align:start;
+  }
+  .video-card .proof-video{ aspect-ratio:9/16; border-radius:6px; }
+  .video-card h4{
+    font-family:var(--font-display);
+    font-size:16px;
+    font-weight:600;
+    margin-top:14px;
+  }
+  .video-card p{
+    font-size:13px;
+    color:var(--text-dim);
+    margin-top:4px;
+  }
+
+  .scroll-hint{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:20px;
+    font-family:var(--font-mono);
+    font-size:11.5px;
+    color:var(--text-dim);
+    letter-spacing:0.04em;
+  }
+  .scroll-hint svg{ flex-shrink:0; }
+
+  /* fade edges to hint there's more off-screen */
+  .video-scroll-wrap::after{
+    content:'';
+    position:absolute;
+    top:0; right:0; bottom:20px;
+    width:64px;
+    background:linear-gradient(to right, transparent, var(--bg));
+    pointer-events:none;
+  }
+
+  /* ============================================
+     CODE SECTION
+     ============================================ */
+  .code-section{ background:var(--bg-alt); }
+  .code-grid{
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:28px;
+  }
+  .code-card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    overflow:hidden;
+  }
+  .code-card .chrome{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    padding:12px 14px;
+    border-bottom:1px solid var(--line);
+  }
+  .chrome .dot{ width:9px; height:9px; border-radius:50%; }
+  .chrome .dot:nth-child(1){ background:#ff5f56; }
+  .chrome .dot:nth-child(2){ background:#ffbd2e; }
+  .chrome .dot:nth-child(3){ background:#27c93f; }
+  .chrome .path{
+    margin-left:12px;
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--text-dim);
+  }
+  .proof-shot{
+    width:100%;
+    aspect-ratio:16/10;
+    background:#0e0e10;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    gap:8px;
+    color:var(--text-dim);
+    font-family:var(--font-mono);
+    font-size:11px;
+    text-align:center;
+  }
+  .proof-shot img{ width:100%; height:100%; object-fit:cover; }
+  .code-card .info{ padding:18px 20px 22px; }
+  .code-card h4{
+    font-family:var(--font-display);
+    font-size:18px;
+    font-weight:600;
+  }
+  .code-card p{
+    font-size:13.5px;
+    color:var(--text-dim);
+    margin-top:6px;
+    line-height:1.55;
+  }
+  .tags{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:14px;
+  }
+  .tags span{
+    font-family:var(--font-mono);
+    font-size:10.5px;
+    color:var(--accent-2);
+    border:1px solid var(--line);
+    padding:3px 8px;
+    border-radius:3px;
+  }
+  .code-card .links{
+    margin-top:16px;
+    display:flex;
+    gap:16px;
+  }
+  .code-card .links a{
+    font-family:var(--font-mono);
+    font-size:12px;
+    color:var(--text-dim);
+    border-bottom:1px solid var(--line);
+    padding-bottom:2px;
+    transition:color 0.2s, border-color 0.2s;
+  }
+  .code-card .links a:hover{ color:var(--accent-2); border-color:var(--accent-2); }
+
+  /* ============================================
+     PRIOR EXPERIENCE — a literal timeline
+     ============================================ */
+  .exp-timeline{
+    position:relative;
+    padding-left:32px;
+  }
+  .exp-timeline::before{
+    content:'';
+    position:absolute;
+    left:5px; top:6px; bottom:6px;
+    width:1px;
+    background:var(--line);
+  }
+  .exp-item{
+    position:relative;
+    padding-bottom:44px;
+  }
+  .exp-item:last-child{ padding-bottom:0; }
+  .exp-item::before{
+    content:'';
+    position:absolute;
+    left:-32px; top:5px;
+    width:11px; height:11px;
+    border-radius:50%;
+    background:var(--bg);
+    border:2px solid var(--accent);
+  }
+  .exp-head{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:baseline;
+    gap:12px;
+    margin-bottom:6px;
+  }
+  .exp-head h4{
+    font-family:var(--font-display);
+    font-size:19px;
+    font-weight:600;
+  }
+  .exp-head .exp-time{
+    font-family:var(--font-mono);
+    font-size:11.5px;
+    color:var(--accent);
+    letter-spacing:0.04em;
+  }
+  .exp-role{
+    font-family:var(--font-mono);
+    font-size:12.5px;
+    color:var(--text-dim);
+    margin-bottom:10px;
+  }
+  .exp-item p{
+    font-size:14.5px;
+    color:var(--text-dim);
+    max-width:600px;
+    line-height:1.6;
+  }
+
+  /* ============================================
+     ABOUT
+     ============================================ */
+  .about-grid{
+    display:grid;
+    grid-template-columns:1.1fr 0.9fr;
+    gap:60px;
+    align-items:start;
+  }
+  .about-grid p{
+    font-size:17px;
+    color:var(--text-dim);
+    margin-bottom:18px;
+    max-width:520px;
+  }
+  .stat-list{ display:flex; flex-direction:column; gap:24px; }
+  .stat{
+    border-top:1px solid var(--line);
+    padding-top:14px;
+  }
+  .stat b{
+    font-family:var(--font-display);
+    font-size:28px;
+    display:block;
+  }
+  .stat span{
+    font-family:var(--font-mono);
+    font-size:12px;
+    color:var(--text-dim);
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+  }
+
+  /* ============================================
+     CONTACT / FOOTER
+     ============================================ */
+  footer{
+    padding:80px 0 40px;
+  }
+  .contact-title{
+    font-family:var(--font-display);
+    font-size:clamp(34px, 5vw, 56px);
+    font-weight:600;
+    letter-spacing:-0.02em;
+    margin-bottom:28px;
+    max-width:600px;
+  }
+  .contact-links{
+    display:flex;
+    flex-wrap:wrap;
+    gap:14px;
+    margin-bottom:80px;
+  }
+  .contact-links a{
+    font-family:var(--font-mono);
+    font-size:14px;
+    padding:12px 20px;
+    border:1px solid var(--line);
+    border-radius:4px;
+    transition:border-color 0.2s, color 0.2s;
+  }
+  .contact-links a:hover{ border-color:var(--accent); color:var(--accent); }
+  .foot-bottom{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--text-dim);
+    border-top:1px solid var(--line);
+    padding-top:24px;
+  }
+
+  /* ============================================
+     RESPONSIVE
+     ============================================ */
+  @media (max-width: 860px){
+    .navlinks{ display:none; }
+    .code-grid{ grid-template-columns:1fr; }
+    .about-grid{ grid-template-columns:1fr; gap:40px; }
+    section{ padding:80px 0; }
+  }
+  @media (max-width: 560px){
+    .wrap{ padding:0 20px; }
+    .video-card{ width:170px; }
+    .hero-cta{ flex-direction:column; }
+    .btn{ text-align:center; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- signature scroll timeline -->
+  <div class="scrub-track"><div class="scrub-fill" id="scrubFill"></div></div>
+  <div class="timecode" id="timecode">00:00 <span>/</span> 04:12</div>
+
+  <header>
+    <nav class="wrap">
+      <div class="logo">NEGLACY<span class="dot">.</span></div>
+      <div class="navlinks">
+        <a href="#reel">Video Editing</a>
+        <a href="#code">Code</a>
+        <a href="#experience">Experience</a>
+        <a href="#about">About</a>
+        <a href="#contact">Contact</a>
+      </div>
+    </nav>
+  </header>
+
+  <!-- ============================================
+       HERO
+       ============================================ -->
+  <section class="hero" id="top">
+    <div class="wrap">
+      <div class="hero-eyebrow"><span class="rec-dot"></span> REC — PORTFOLIO 2026</div>
+      <h1>I cut footage<br>and I write <span class="accent-word">code.</span></h1>
+      <p class="hero-role">Video editor and developer. I tell stories with a timeline and I build things with a terminal — this page is both, cut together.</p>
+      <div class="hero-cta">
+        <a href="#reel" class="btn btn-primary">Watch the videos</a>
+        <a href="#code" class="btn btn-ghost">See the code</a>
+      </div>
+      <div class="hero-strip" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <!-- ============================================
+       VIDEO EDITING
+       ============================================ -->
+<section id="reel">
+  <div class="wrap">
+    <div class="eyebrow">Reel — 00:01 / 02:10</div>
+    <h2 class="section-title">Video editing</h2>
+    <p class="section-sub">A mix of narrative, promo, and short-form cuts. Full videos below.</p>
+
+    <div class="video-featured">
+      <div class="proof-video">
+        <video controls poster="hqdefault.jpg">
+          <source src="All.m4v" type="video/mp4">
+          Your browser does not support the video tag.
+        </video>
+      </div>
+
+      <div class="cap">
+        <h3>Featured cut — project title</h3>
+        <span>Premiere Pro · 2:10</span>
+      </div>
+    </div>
+
+    <div class="scroll-hint">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M9 6l6 6-6 6"/>
+      </svg>
+      Scroll for more clips
+    </div>
+
+    <div class="video-scroll-wrap">
+      <div class="video-grid">
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="damon.mp4" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="chadmichael.mp4" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="Billie 3.m4v" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="JJWeekend.mp4" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="goldenbrown.m4v" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="glory.mp4" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="lousWATERmark.mp4" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="MADDYYY.mp4" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="ultimate voidstiles.m4v" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="scanprofit.mp4" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="posterboy.m4v" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="charles.mp4" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="ammanunited.mp4" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="DYlan.m4v" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="dylannn.mp4" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="dirtydylan.mp4" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="thomasdata.mp4" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="sexybackfunk.m4v" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="trial1.mp4" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="finalwellnest.m4v" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="Beforeafter.m4v" type="video/mp4"></video>
+          </div>
+        </div>
+
+        <div class="video-card">
+          <div class="proof-video">
+            <video controls><source src="/D:\void stiles\RulaWorkouts\finaldraft.m4v" type="video/mp4"></video>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+  <!-- ============================================
+       CODE
+       ============================================ -->
+<section id="code" class="code-section">
+  <div class="wrap">
+    <div class="eyebrow">$ ls ./projects — 02:40 / 03:30</div>
+    <h2 class="section-title">Code</h2>
+    <p class="section-sub">A selection of projects I've built.</p>
+
+    <div class="code-grid">
+
+      <!-- Portfolio Website -->
+      <div class="code-card">
+        <div class="chrome">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <span class="path">~/projects/portfolio-website</span>
+        </div>
+
+        <div class="proof-shot">
+          <img src="web.png" alt="Portfolio Website">
+        </div>
+
+        <div class="info">
+          <h4>Portfolio Website</h4>
+          <p>Personal portfolio website.</p>
+        </div>
+      </div>
+
+      <!-- EcoTrack -->
+      <div class="code-card">
+        <div class="chrome">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <span class="path">~/projects/ecotrack</span>
+        </div>
+
+        <div class="proof-shot">
+          <img src="ecotrack.jpeg" alt="EcoTrack">
+        </div>
+
+        <div class="info">
+          <h4>EcoTrack</h4>
+          <p>Environmental tracking app.</p>
+        </div>
+      </div>
+
+      <!-- Doxxing Detection -->
+      <div class="code-card">
+        <div class="chrome">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <span class="path">~/projects/doxxing-detection</span>
+        </div>
+
+        <div class="proof-shot">
+          <img src="doxxing.jpeg" alt="Doxxing Detection Project">
+        </div>
+
+        <div class="info">
+          <h4>Doxxing Detection</h4>
+          <p>Cybersecurity detection tool.</p>
+        </div>
+      </div>
+
+    </div>  
+  </div>
+</section>
+
+  <!-- ============================================
+       PRIOR EXPERIENCE
+       ============================================ -->
+  <section id="experience">
+    <div class="wrap">
+      <div class="eyebrow">Experience — 03:00 / 03:30</div>
+      <h2 class="section-title">Prior experience</h2>
+      <p class="section-sub">Where I have worked and the people that I have worked with and specifically the role/ service I provided.</p>
+
+      <div class="exp-timeline">
+        <div class="exp-item">
+          <div class="exp-head">
+            <h4>Coding</h4>
+            <span class="exp-time">2020 — 2023</span>
+          </div>
+          <div class="exp-role">Endgames - Minecraft Championship</div>
+          <p>A mini minecraft championship, I was the co-owner and the head developer making plugins (Java) / mods (Java)/ also working with Minecraft command blocks</p>
+        </div>
+
+        <div class="exp-item">
+          <div class="exp-head">
+            <h4>Video Editing - Tiktok Edits</h4>
+            <span class="exp-time">2023 — Present</span>
+          </div>
+          <div class="exp-role">voidzxstiles Tiktok</div>
+          <p>Making short-form tiktok velocity edits mostly from a space of my own passion.</p>
+        </div>
+
+        <div class="exp-item">
+          <div class="exp-head">
+            <h4>Programming - HTML/ CSS/ Javascript</h4>
+            <span class="exp-time">2023 - Present </span>
+          </div>
+          <div class="exp-role">Amman Funfinder - My own Business</div>
+          <p>I started my own business called Amman Funfinder that is only avaliable based on your geopgraphic location specifically Amman where you can find fun activities to do in Amman to tackle the issues of entertainment scarcity.</p>
+        </div>
+
+        <div class="exp-item">
+          <div class="exp-head">
+            <h4>Programming - HTML/ CSS/ Javascript</h4>
+            <span class="exp-time">2023 - 2024 </span>
+          </div>
+          <div class="exp-role">Medmate - My own Business</div>
+          <p>I started my own bussiness with a team of students to tackle the issue of unavaliable healthcare to elderly people especially in the cases of a pandemic by making healthcare avaliable virtually specifically in Amman.</p>
+        </div>
+
+        <div class="exp-item">
+          <div class="exp-head">
+            <h4>Video Editing - Short form</h4>
+            <span class="exp-time">2024 - 2025</span>
+          </div>
+          <div class="exp-role">Roula Fitness - Over 1 million followers on Instragram</div>
+          <p>I edited short-form videos for a fitness influencer by the name of Roula Fitness with over 1 million followers.</p>
+        </div>
+
+        <div class="exp-item">
+          <div class="exp-head">
+            <h4>Programming - HTML/ CSS/ Javascript</h4>
+            <span class="exp-time"> 2025 - Present </span>
+          </div>
+          <div class="exp-role">Wellnest - Head Developer</div>
+          <p>Wellnest is the growth platform for studios, gyms, freelancers, and wellness pros. Join early to lock in priority onboarding and exclusive launch perks. I engineered the entirety of the website and application.</p>
+        </div>
+
+        <div class="exp-item">
+          <div class="exp-head">
+            <h4>Video Editing - Short-form </h4>
+            <span class="exp-time">2026 - Present - </span>
+          </div>
+          <div class="exp-role">Wellnest Marketing</div>
+          <p>I edited promotional videos for the up-and-coming business Wellnest. I am their full-time editor.</p>
+        </div>
+
+        <div class="exp-item">
+          <div class="exp-head">
+            <h4>Video Editing - Short form</h4>
+            <span class="exp-time">2026 - Present - </span>
+          </div>
+          <div class="exp-role">Editing for a rapper by the name of Alshaikh</div>
+          <p>I edited promotional videos for the up-and-coming rapper in Saudi Arabia.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================
+       ABOUT
+       ============================================ -->
+  <section id="about">
+    <div class="wrap about-grid">
+      <div>
+        <div class="eyebrow">About — 03:35 / 03:55</div>
+        <h2 class="section-title">A bit about me</h2>
+        <p>I'm driven by my passion. My love for programming is beyond this world, and I am very excited to work on bigger projects leaning towards applications and even more prominently games. I have laods of experience in those. Additioanlly, my love for video editing - it kinda happened accidentally, my love for it is based on the feeling it invokes in others and the satisifaction of the results.</p>
+        <p>My tools: Adobe Premiere Pro | Adobe After Effects | Adobe Photoshop | Adobe Media Encoder | Visual Studio Code | Cursor | Eclipse IDE | IntelliJ IDEA</p>
+      </div>
+      <div class="stat-list">
+        <div class="stat"><b>3+ Years</b><span>Years editing</span></div>
+        <div class="stat"><b>6+ Years</b><span>Years coding</span></div>
+        <div class="stat"><b>10</b><span>Projects shipped</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================
+       CONTACT
+       ============================================ -->
+  <footer id="contact">
+    <div class="wrap">
+      <div class="eyebrow">End of reel — 04:12 / 04:12</div>
+      <h2 class="contact-title">Got a project? Let's cut it together.</h2>
+      <div class="contact-links">
+        <a href="mailto:you@email.com">mariamakdah11@gmail.com</a>
+      </div>
+      <div class="foot-bottom">
+        <span>© 2026 Neglacy</span>
+        <span>Built with HTML, CSS &amp; JS</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Signature scroll-timeline: fills the top bar and updates a
+    // fake "timecode" (00:00–04:12) as you scroll through the page.
+    const fill = document.getElementById('scrubFill');
+    const tc = document.getElementById('timecode');
+    const totalSeconds = 4 * 60 + 12; // 04:12 total runtime
+
+    function fmt(s){
+      const m = Math.floor(s / 60).toString().padStart(2, '0');
+      const sec = Math.floor(s % 60).toString().padStart(2, '0');
+      return m + ':' + sec;
+    }
+
+    function onScroll(){
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const pct = docHeight > 0 ? Math.min(scrollTop / docHeight, 1) : 0;
+      fill.style.width = (pct * 100) + '%';
+      tc.innerHTML = fmt(pct * totalSeconds) + ' <span>/</span> 04:12';
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+
+    // decorative tick marks under the hero
+    const strip = document.querySelector('.hero-strip');
+    if (strip) {
+      for (let i = 0; i < 60; i++){
+        const t = document.createElement('div');
+        t.className = 'tick' + (i % 10 === 0 ? ' major' : i % 5 === 0 ? ' mid' : '');
+        strip.appendChild(t);
+      }
+    }
+  </script>
+
+</body>
+</html>
